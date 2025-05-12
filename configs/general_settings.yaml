@@ -1,0 +1,27 @@
+paths:
+  data_dir: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/DATA"
+  email_dir: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/DATA/emails/cleaned_emails"
+  embeddings_dir: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/embeddings"
+  log_dir: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/DATA/emails/logs"
+  cleaned_emails: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/DATA/emails/cleaned_emails/cleaned_emails.tsv"
+  chunked_emails: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/DATA/emails/chunked_emails.tsv"
+  faiss_index: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/embeddings/email_chunks.index"
+  metadata_file: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/embeddings/email_chunks_metadata.tsv"
+  output_file: "Alma_L_365.tsv"
+
+outlook:
+  account_name: "hagaybar@tauex.tau.ac.il"
+  folder_path: "LISTS>ALMA L"
+
+defaults:
+  top_k: 5
+  text_column: "Chunk"
+
+
+embedding:
+  mode: "local" # or "api"
+  model_name: "sentence-transformers/all-MiniLM-L6-v2" #
+  embedding_dim: 384  # Or 1536 if using OpenAI models
+  output_dir: "C:/Users/hagaybar/OneDrive - Tel-Aviv University/My Personal files/systems/AI Project/embeddings/emails/local_embeddings"
+  index_filename: "chunks.index"
+  metadata_filename: "chunks_metadata.tsv"
