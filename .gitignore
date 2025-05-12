@@ -71,7 +71,7 @@ tests/Opening.html
 tests/*.txt
 Opening.html
 scripts/data_processing/html/Opening.html
-dev/*
+scripts/dev/*
 # -------------------------
 # Optional: ignore task-specific configs
 # -------------------------
