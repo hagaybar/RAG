@@ -92,3 +92,9 @@ docs/chat_*
 # -------------------------
 *.xlsx
 
+
+# -------------------------
+# force: requirements.txt
+# -------------------------
+
+!requirements.txt
