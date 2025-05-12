@@ -69,7 +69,7 @@ scripts/data_processing/html/Opening_files/
 tests/chunks_output*
 tests/Opening.html
 tests/*.txt
-
+Opening.html
 # -------------------------
 # Optional: ignore task-specific configs
 # -------------------------
