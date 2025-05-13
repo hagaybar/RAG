@@ -25,6 +25,7 @@ class RAGPipeline:
     STEP_DEPENDENCIES = {
     "extract_and_chunk": [],
     "embed_chunks": [],
+    "embed_chunks_batch": [],
     "get_user_query": [],
     "retrieve": ["embed_chunks", "get_user_query"],
     "generate_answer": ["retrieve"]
@@ -120,6 +121,20 @@ class RAGPipeline:
                 index_filename=index_filename,
                 metadata_filename=metadata_filename
             )
+        elif mode == "batch":
+            from scripts.api_clients.openai.gptApiClient import APIClient
+            from scripts.embedding.general_purpose_embedder import GeneralPurposeEmbedder
+
+            api_client = APIClient(config=self.config)
+            self.logger.info("Batch API client created for embedding.")
+            return GeneralPurposeEmbedder(
+                embedder_client=api_client,
+                embedding_dim=embedding_dim,
+                output_dir=output_dir,
+                index_filename=index_filename,
+                metadata_filename=metadata_filename
+            )
+
 
         else:
             raise ValueError(f"Unsupported embedding mode: {mode}")
@@ -187,7 +202,6 @@ class RAGPipeline:
             raise RuntimeError("Current embedder does not support batch embedding.")
 
         self.embedder.run_batch(self.chunked_file, text_column="Chunk")
-
 
     def retrieve(self, query: Optional[str] = None) -> dict:
         self.logger.info("Starting chunk retrieval...")
@@ -430,6 +444,11 @@ class RAGPipeline:
                 "desc": "Embed chunked text using a local model or OpenAI API.",
                 "depends_on": []
             },
+            "embed_chunks_batch": {
+            "desc": "Embed chunked text using OpenAI's batch embedding API.",
+            "depends_on": []
+            },
+
             "get_user_query": {
                 "desc": "Prompt the user (or system) to input a natural language query.",
                 "depends_on": []
