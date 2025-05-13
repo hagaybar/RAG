@@ -175,6 +175,19 @@ class RAGPipeline:
             raise RuntimeError("No chunked file available. Run extract_and_chunk() first.")
         self.embedder.run(self.chunked_file, text_column="Chunk")
 
+    def embed_chunks_batch(self) -> None:
+        self.ensure_config_loaded()
+        self.logger.info("Starting batch chunk embedding...")
+
+        if not self.chunked_file:
+            self.logger.error("No chunked file available. Run extract_and_chunk() first.")
+            raise RuntimeError("No chunked file available. Run extract_and_chunk() first.")
+
+        if not hasattr(self.embedder, "run_batch"):
+            raise RuntimeError("Current embedder does not support batch embedding.")
+
+        self.embedder.run_batch(self.chunked_file, text_column="Chunk")
+
 
     def retrieve(self, query: Optional[str] = None) -> dict:
         self.logger.info("Starting chunk retrieval...")
@@ -197,20 +210,6 @@ class RAGPipeline:
         result = retriever.retrieve(query_vector=query_vector)
         self.last_chunks = result
 
-        self.logger.info(f"Retrieved {len(result['context'])} relevant chunks for query: {query}")
-        return result
-
-
-    def retrieve_old(self, query: Optional[str] = None) -> dict:
-        self.logger.info("Starting chunk retrieval...")
-        self.ensure_config_loaded()
-        retriever = ChunkRetriever(index_path=self.index_path, metadata_path=self.metadata_path)
-        query = query or self.query
-        if not query:
-            raise ValueError("No query provided. Use get_user_query() or pass query explicitly.")
-        query_vector = self.embedder.embed_query(query)
-        result = retriever.retrieve(query_vector=query_vector)
-        self.last_chunks = result
         self.logger.info(f"Retrieved {len(result['context'])} relevant chunks for query: {query}")
         return result
 
@@ -239,7 +238,6 @@ class RAGPipeline:
 
         print("💬 Generated Answer:\n", answer)
         return answer
-
 
     def run_full_pipeline(self, query: str) -> str:
         self.ensure_config_loaded()
@@ -372,7 +370,6 @@ class RAGPipeline:
             except Exception as e:
                 print(f"❌ Step '{step_name}' failed with error: {e}")
                 raise
-
 
     def pipe_review(self):
         """
