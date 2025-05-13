@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import faiss
 from typing import Optional, Union, List
+from scripts.api_clients.openai.batch_embedder import BatchEmbedder
 
 class GeneralPurposeEmbedder:
     """
@@ -18,12 +19,14 @@ class GeneralPurposeEmbedder:
     - Flexible embedding dimensions
     - Duplicate checking to avoid redundant embeddings
     - Configuration via YAML file for paths, model choices, and modes
+    - Batch embedding using OpenAI's batch API via the `run_batch()` method for efficient large-scale processing
 
     Expected Usage:
     ----------------
     1. Initialize an embedder client that has an `embed(texts: List[str]) -> List[List[float]]` method.
     2. Pass the client and configuration into GeneralPurposeEmbedder.
-    3. Call `run(chunked_file_path, text_column)` to perform embedding and update index + metadata.
+    3. Call `run(chunked_file_path, text_column)` to perform synchronous embedding.
+    4. Call `run_batch(chunked_file_path, text_column)` to perform asynchronous batch embedding using OpenAI.
 
     Args:
         embedder_client (object): Must expose an `.embed(texts)` method.
@@ -36,6 +39,7 @@ class GeneralPurposeEmbedder:
     --------
     >>> embedder = GeneralPurposeEmbedder(LocalModelEmbedder(), 384)
     >>> embedder.run("data/chunks.tsv", text_column="Chunk")
+    >>> embedder.run_batch("data/chunks.tsv", text_column="Chunk")
     """
 
     def __init__(self,
@@ -104,3 +108,37 @@ class GeneralPurposeEmbedder:
         new_embeddings = self.embed_dataframe(df, text_column=text_column)
         self.save_index(new_embeddings)
         self.save_metadata(df)
+
+    def run_batch(self, chunked_file_path: str, text_column: str = "Chunk") -> None:
+            """
+            Full batch embedding workflow using OpenAI's batch API.
+            Loads text chunks, submits batch job, parses results, and saves to FAISS + metadata.
+            """
+            df = pd.read_csv(chunked_file_path, sep="\t")
+            if text_column not in df.columns:
+                raise ValueError(f"'{text_column}' column not found in file: {chunked_file_path}")
+
+            if os.path.exists(self.metadata_path):
+                existing_chunks = pd.read_csv(self.metadata_path, sep="\t", usecols=[text_column])
+                before_count = len(df)
+                df = df[~df[text_column].isin(existing_chunks[text_column])]
+                after_count = len(df)
+                print(f"\U0001f9f9 Filtered out {before_count - after_count} duplicate chunks. {after_count} new chunks remain.")
+
+            if df.empty:
+                print("⚠️ No new chunks to embed.")
+                return
+
+            texts = df[text_column].tolist()
+            ids = [f"chunk-{i}" for i in range(len(texts))]
+            df["custom_id"] = ids
+
+            batch_embedder = BatchEmbedder(model="text-embedding-3-small", output_dir=self.output_dir)
+            embeddings_dict = batch_embedder.run(texts)
+
+            # Order embeddings according to the original custom_id list
+            ordered_embeddings = [embeddings_dict[cid] for cid in df["custom_id"] if cid in embeddings_dict]
+            embedding_matrix = np.array(ordered_embeddings, dtype="float32")
+
+            self.save_index(embedding_matrix)
+            self.save_metadata(df.drop(columns=["custom_id"]))
