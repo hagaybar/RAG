@@ -18,7 +18,7 @@ from scripts.utils.config_templates import get_default_config
 from scripts.utils.merge_utils import deep_merge
 from scripts.utils.logger import LoggerManager
 
-from scripts.utils.yaml_utils import QuotedStringDumper
+from scripts.utils.yaml_utils import SmartQuotedStringDumper
 
 
 class RAGPipeline:
@@ -276,8 +276,9 @@ class RAGPipeline:
                 yaml.dump(
                     task_config,
                     f,
-                    Dumper=QuotedStringDumper,
-                    default_flow_style=False
+                    Dumper=SmartQuotedStringDumper,
+                    default_flow_style=False,
+                    sort_keys=False
                 )
         elif output_format == "json":
             import json

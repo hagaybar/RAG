@@ -1,13 +1,17 @@
 # scripts/utils/yaml_utils.py
 import yaml
 
-class QuotedStringDumper(yaml.SafeDumper):
+class SmartQuotedStringDumper(yaml.SafeDumper):
     """
-    Custom YAML dumper that forces all string values to be enclosed in double quotes.
-    See full documentation inside.
+    Dumper that quotes string values but leaves keys and numbers unquoted.
     """
-    @staticmethod
-    def represent_str(dumper, data):
-        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style='"')
 
-QuotedStringDumper.add_representer(str, QuotedStringDumper.represent_str)
+    def represent_str(self, data):
+        # Check if we're inside a key context by inspecting the parent node
+        if self.context_stack and isinstance(self.context_stack[-1], yaml.MappingNode):
+            is_key = (self.context_stack[-1].value.index(self.cur_node) % 2 == 0)
+            if is_key:
+                return super().represent_str(data)  # leave keys unquoted if possible
+        return self.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+
+SmartQuotedStringDumper.add_representer(str, SmartQuotedStringDumper.represent_str)
