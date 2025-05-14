@@ -5,7 +5,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from scripts.pipeline.rag_pipeline import RAGPipeline
 
 pipeline = RAGPipeline(config_path=r"configs\tasks\my_batch_test.yaml")
-pipeline.add_step("extract_and_chunk")
-pipeline.add_step("embed_chunks_batch")
-pipeline.pipe_review()
+# pipeline.add_step("extract_and_chunk")
+# pipeline.add_step("embed_chunks_batch")
+pipeline.add_step("get_user_query", query="Please check any complaints related to links. What kind of complaints? what were the solutions given?")
+pipeline.add_step("retrieve", force=True)
+pipeline.add_step("generate_answer")
+# pipeline.pipe_review()
 pipeline.run_steps()
+
