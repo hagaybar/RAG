@@ -203,6 +203,83 @@ class RAGPipeline:
 
         self.embedder.run_batch(self.chunked_file, text_column="Chunk")
 
+    def update_embeddings(self) -> None:
+        from scripts.utils.paths import TaskPaths, generate_run_id
+        from scripts.utils.logger import LoggerManager
+        from scripts.utils.data_utils import deduplicate_emails, deduplicate_chunks
+        from scripts.data_processing.email.email_fetcher import EmailFetcher
+        from scripts.chunking.text_chunker_v2 import TextChunker
+
+        self.ensure_config_loaded()
+        task_name = self.config["task_name"]
+        run_id = generate_run_id()
+        task_paths = TaskPaths(task_name)
+        logger = LoggerManager.get_logger("UpdatePipeline", task_paths=task_paths, run_id=run_id)
+
+        logger.info("Starting update_embeddings() run...")
+
+        # Step 1: Fetch new emails
+        fetcher = EmailFetcher(self.config)
+        new_emails = fetcher.fetch_emails_from_folder(return_dataframe=True, save=False)
+        logger.info(f"Fetched {len(new_emails)} raw emails.")
+
+        # Step 2: Deduplicate emails against cleaned dataset
+        cleaned_email_path = task_paths.get_cleaned_email_file()
+        deduped_emails = deduplicate_emails(new_emails, cleaned_email_path)
+        logger.info(f"Deduplicated: {len(deduped_emails)} new emails remain.")
+
+        if deduped_emails.empty:
+            logger.info("No new emails to process after deduplication. Exiting update.")
+            return
+
+        # Step 3: Save updated cleaned emails
+        deduped_emails.to_csv(cleaned_email_path, sep="\t", mode="a", index=False, header=not os.path.exists(cleaned_email_path))
+        logger.info(f"Appended cleaned emails to: {cleaned_email_path}")
+
+        # Step 4: Chunk new emails
+        chunk_cfg = self.config["chunking"]
+        chunker = TextChunker(
+            max_chunk_size=chunk_cfg.get("max_chunk_size", 500),
+            overlap=chunk_cfg.get("overlap", 50),
+            min_chunk_size=chunk_cfg.get("min_chunk_size", 150),
+            similarity_threshold=chunk_cfg.get("similarity_threshold", 0.8),
+            language_model=chunk_cfg.get("language_model", "en_core_web_sm"),
+            embedding_model=chunk_cfg.get("embedding_model", "sentence-transformers/all-MiniLM-L6-v2")
+        )
+
+        deduped_emails["Chunks"] = deduped_emails["Cleaned Body"].apply(lambda x: chunker.chunk_text(str(x)))
+        chunk_df = deduped_emails.explode("Chunks").reset_index(drop=True).rename(columns={"Chunks": "Chunk"})
+
+        # Step 5: Deduplicate chunks against existing metadata
+        chunk_file = task_paths.get_chunk_file()
+        chunk_df.to_csv(chunk_file, sep="\t", mode="a", index=False, header=not os.path.exists(chunk_file))
+
+        chunk_meta_path = task_paths.get_metadata_file()
+        final_chunks = deduplicate_chunks(chunk_df, chunk_meta_path, text_col="Chunk")
+        logger.info(f"Deduplicated chunks: {len(final_chunks)} to embed.")
+
+        # Step 6: Embed chunks and append to FAISS + metadata
+        if final_chunks.empty:
+            logger.info("No new unique chunks to embed. Skipping embedding stage.")
+            return
+
+        self.embedder.run(chunk_file, text_column="Chunk")
+        logger.info("Embedding complete. FAISS and metadata updated.")
+
+        # Optional: Save run metadata
+        run_dir = task_paths.get_update_dir(run_id)
+        metadata = {
+            "run_id": run_id,
+            "new_emails_fetched": len(new_emails),
+            "new_emails_after_dedup": len(deduped_emails),
+            "new_chunks": len(chunk_df),
+            "unique_chunks_embedded": len(final_chunks),
+            "index_file": task_paths.get_index_file(),
+            "metadata_file": chunk_meta_path
+        }
+        pd.Series(metadata).to_json(os.path.join(run_dir, "run_metadata.json"), indent=2)
+        logger.info(f"Run metadata saved to: {run_dir}/run_metadata.json")
+
     def retrieve(self, query: Optional[str] = None) -> dict:
         self.logger.info("Starting chunk retrieval...")
         self.ensure_config_loaded()
