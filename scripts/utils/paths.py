@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 from typing import Optional
 
+def generate_run_id() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
 class TaskPaths:
     """
     Utility class to compute and manage directory and file paths
@@ -62,3 +66,4 @@ class TaskPaths:
     def get_log_path(self, run_id: Optional[str] = None) -> str:
         if run_id:
             return os.path.join(self.logs_dir, f"{run_id}.log")
+        return os.path.join(self.logs_dir, "task.log")
