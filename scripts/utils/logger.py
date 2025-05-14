@@ -16,53 +16,59 @@ class LoggerManager:
     _default_log_dir = "logs"
 
     @classmethod
-    def get_logger(cls, name: str,
+    def get_logger(cls, 
+                   name: str,
                    log_file: Optional[str] = None,
                    level: str = "INFO",
                    use_json: bool = False,
-                   use_color: bool = True) -> logging.Logger:
+                   use_color: bool = True,
+                   task_paths: Optional[object] = None,
+                   run_id: Optional[str] = None) -> logging.Logger:
         """
         Retrieve or create a logger configured for console and file output.
 
         Args:
             name (str): A unique identifier (typically module or task name).
-            log_file (Optional[str]): Full path to a log file. If not specified,
-                                      defaults to 'logs/{name}.log'.
+            log_file (Optional[str]): Full path to a log file. Overrides task_paths if set.
             level (str): Logging level threshold ("DEBUG", "INFO", etc.).
             use_json (bool): If True, format file logs as JSON (for parsing).
             use_color (bool): If True and colorlog is available, enable colored console output.
+            task_paths (Optional[object]): An instance of TaskPaths to resolve log file path.
+            run_id (Optional[str]): Optional run identifier used to create per-run logs.
 
         Returns:
             logging.Logger: A fully configured logger instance.
-
-        Notes:
-            - File logging is always enabled.
-            - Console logging is added with either colored or plain formatting.
-            - Each logger is only initialized once per name.
         """
-        if name in cls._loggers:
-            return cls._loggers[name]
 
-        logger = logging.getLogger(name)
+        logger_key = f"{name}-{run_id}" if run_id else name
+        if logger_key in cls._loggers:
+            return cls._loggers[logger_key]
+
+        logger = logging.getLogger(logger_key)
         logger.setLevel(level.upper())
         logger.propagate = False  # Prevent duplicate logs
 
+        if not log_file and task_paths:
+            log_file = task_paths.get_log_path(run_id=run_id)
+
         # Create log folder
-        log_dir = cls._default_log_dir
+        log_dir = os.path.dirname(log_file or cls._default_log_dir)
         os.makedirs(log_dir, exist_ok=True)
 
         # File handler
         if not log_file:
             log_file = os.path.join(log_dir, f"{name}.log")
+        
+        log_dir = os.path.dirname(log_file or cls._default_log_dir)
+        os.makedirs(log_dir, exist_ok=True)
 
         file_handler = cls._setup_file_handler(log_file, level, use_json)
-        logger.addHandler(file_handler)
-
-        # Console handler
         console_handler = cls._setup_console_handler(level, use_color)
+
+        logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
-        cls._loggers[name] = logger
+        cls._loggers[logger_key] = logger
         return logger
 
     @staticmethod
