@@ -360,7 +360,58 @@ class RAGPipeline:
         answer = self.generate_answer(query, chunks)
         return answer
 
-    def configure_task(self, task_name: str, output_format: str = "yaml", overrides: Optional[dict] = None) -> str:
+    def configure_task(self, task_name: str, output_format: str = "yaml", overrides: Optional[dict] = None, interactive: bool = False) -> str:
+        """
+        Create and save a configuration file for a new task.
+
+        Args:
+            task_name (str): Unique identifier for the task.
+            output_format (str): 'yaml' or 'json'.
+            overrides (dict, optional): Values to override in the default template.
+            interactive (bool): If True, run interactive CLI to gather config.
+
+        Returns:
+            str: Path to the saved configuration file.
+        """
+        if interactive:
+            from scripts.config.task_config_builder import TaskConfigBuilder
+            builder = TaskConfigBuilder()
+            builder.start()
+            config = builder.config
+        else:
+            from scripts.utils.config_templates import get_default_config
+            from scripts.utils.merge_utils import deep_merge
+            config = get_default_config(task_name)
+            if overrides:
+                config = deep_merge(config, overrides)
+
+        os.makedirs("task_configs", exist_ok=True)
+        save_path = os.path.join("task_configs", f"{task_name}.{output_format}")
+
+        if output_format == "yaml":
+            import yaml
+            from scripts.utils.yaml_utils import SmartQuotedStringDumper
+            with open(save_path, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    config,
+                    f,
+                    Dumper=SmartQuotedStringDumper,
+                    default_flow_style=False,
+                    sort_keys=False
+                )
+        elif output_format == "json":
+            import json
+            with open(save_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)
+        else:
+            raise ValueError("Output format must be 'yaml' or 'json'.")
+
+        print(f"✅ Task configuration saved to: {save_path}")
+        return save_path
+
+    
+    
+    def configure_task_temp(self, task_name: str, output_format: str = "yaml", overrides: Optional[dict] = None) -> str:
         if self.config is None:
             self.config = {}
 
