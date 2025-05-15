@@ -48,19 +48,17 @@ class LoggerManager:
         logger.setLevel(level.upper())
         logger.propagate = False  # Prevent duplicate logs
 
+        # Resolve log file
         if not log_file and task_paths:
             log_file = task_paths.get_log_path(run_id=run_id)
 
-        # Create log folder
-        log_dir = os.path.dirname(log_file or cls._default_log_dir)
+        # Determine log directory
+        log_dir = os.path.dirname(log_file) if log_file else cls._default_log_dir
         os.makedirs(log_dir, exist_ok=True)
 
-        # File handler
+        # Finalize log_file if still unset
         if not log_file:
             log_file = os.path.join(log_dir, f"{name}.log")
-        
-        log_dir = os.path.dirname(log_file or cls._default_log_dir)
-        os.makedirs(log_dir, exist_ok=True)
 
         file_handler = cls._setup_file_handler(log_file, level, use_json)
         console_handler = cls._setup_console_handler(level, use_color)
@@ -70,6 +68,7 @@ class LoggerManager:
 
         cls._loggers[logger_key] = logger
         return logger
+
 
     @staticmethod
     def _setup_file_handler(filepath: str, level: str, use_json: bool) -> logging.Handler:

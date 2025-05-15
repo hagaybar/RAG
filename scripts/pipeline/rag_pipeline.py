@@ -408,9 +408,7 @@ class RAGPipeline:
 
         print(f"✅ Task configuration saved to: {save_path}")
         return save_path
-
-    
-    
+        
     def configure_task_temp(self, task_name: str, output_format: str = "yaml", overrides: Optional[dict] = None) -> str:
         if self.config is None:
             self.config = {}
