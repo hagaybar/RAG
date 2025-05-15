@@ -418,6 +418,64 @@ class RAGPipeline:
 
     def add_step(self, step_name: str, force: bool = False, **kwargs):
         """
+        Add a step to the pipeline, validating dependencies and required config keys.
+
+        Each step must meet two criteria:
+        1. All dependent steps must already be added (unless force=True)
+        2. All required configuration keys for the step must be present in the config
+
+        If any config key is missing, the step is not added and an error is raised.
+
+        Args:
+            step_name (str): The name of the pipeline step (e.g., 'embed_chunks').
+            force (bool): If True, bypasses dependency checks (not recommended).
+            **kwargs: Optional arguments passed to the step during execution.
+
+        Raises:
+            AttributeError: If step_name is not a method of this pipeline.
+            ValueError: If dependencies or required config keys are missing.
+        """
+        from scripts.config.step_config_requirements import STEP_REQUIRED_CONFIG
+
+        if not hasattr(self, step_name):
+            raise AttributeError(f"Step '{step_name}' is not a method of RAGPipeline.")
+
+        if step_name not in self.STEP_DEPENDENCIES:
+            raise ValueError(f"Step '{step_name}' is not a recognized pipeline step.")
+
+        added_steps = [s for s, _ in self.steps]
+
+        # Step dependency validation
+        missing_dependencies = [
+            dep for dep in self.STEP_DEPENDENCIES[step_name]
+            if dep not in added_steps
+        ]
+        if missing_dependencies and not force:
+            raise ValueError(
+                f"Cannot add step '{step_name}' — missing prerequisite(s): {missing_dependencies}.\n"
+                f"You can override this check with force=True if you are sure these steps were already completed."
+            )
+
+        # Step config validation
+        required_keys = STEP_REQUIRED_CONFIG.get(step_name, [])
+        missing_keys = []
+        for key in required_keys:
+            try:
+                self.config_loader.get(key)
+            except KeyError:
+                missing_keys.append(key)
+
+        if missing_keys:
+            raise ValueError(
+                f"Step '{step_name}' cannot be added — missing required config keys:\n" +
+                "\n".join(f"  - {k}" for k in missing_keys)
+            )
+
+        self.steps.append((step_name, kwargs))
+        print(f"✅ Step '{step_name}' added{' (force override)' if force else ''}.")
+
+    def add_step_temp(self, step_name: str, force: bool = False, **kwargs):
+        """
         Add a pipeline step by name, along with optional parameters.
 
         Args:
