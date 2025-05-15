@@ -1,6 +1,6 @@
 # 📚 RAG Email Pipeline Prototype
 
-This repository contains a modular Retrieval-Augmented Generation (RAG) pipeline designed to extract and process email data (e.g., Ex Libris Alma mailing lists), generate vector embeddings, and provide AI-assisted answers using the OpenAI API.
+This repository contains a modular Retrieval-Augmented Generation (RAG) pipeline designed to extract and process email data, generate vector embeddings, and provide AI-assisted answers using the OpenAI API.
 
 ---
 
