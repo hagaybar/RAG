@@ -17,7 +17,7 @@ from scripts.api_clients.openai.gptApiClient import APIClient
 from scripts.utils.config_templates import get_default_config
 from scripts.utils.merge_utils import deep_merge
 from scripts.utils.logger import LoggerManager
-
+import logging
 from scripts.utils.yaml_utils import SmartQuotedStringDumper
 
 
@@ -266,16 +266,37 @@ class RAGPipeline:
         self.embedder.run(chunk_file, text_column="Chunk")
         logger.info("Embedding complete. FAISS and metadata updated.")
 
+        log_file_path = None
+        for h in logger.handlers:
+            if isinstance(h, logging.FileHandler):
+                log_file_path = getattr(h, "baseFilename", None)
+                break
+
+        if not log_file_path:
+            log_file_path = "unknown"
+
         # Optional: Save run metadata
         run_dir = task_paths.get_update_dir(run_id)
         metadata = {
+            "task_name": task_name,
             "run_id": run_id,
-            "new_emails_fetched": len(new_emails),
-            "new_emails_after_dedup": len(deduped_emails),
-            "new_chunks": len(chunk_df),
-            "unique_chunks_embedded": len(final_chunks),
-            "index_file": task_paths.get_index_file(),
-            "metadata_file": chunk_meta_path
+            "run_type": "update_embeddings",
+            "timestamp": datetime.now().isoformat(),
+            "input_summary": {
+                "emails_fetched": len(new_emails),
+                "emails_after_dedup": len(deduped_emails),
+                "chunks_created": len(chunk_df),
+                "unique_chunks_embedded": len(final_chunks)
+            },
+            "output_paths": {
+                "cleaned_emails_file": cleaned_email_path,
+                "chunk_file": chunk_file,
+                "index_file": task_paths.get_index_file(),
+                "metadata_file": chunk_meta_path,
+                "log_file": log_file_path
+            },
+            "embedding_model": self.config["embedding"]["model_name"],
+            "embedding_dim": self.config["embedding"]["embedding_dim"]
         }
         pd.Series(metadata).to_json(os.path.join(run_dir, "run_metadata.json"), indent=2)
         logger.info(f"Run metadata saved to: {run_dir}/run_metadata.json")
