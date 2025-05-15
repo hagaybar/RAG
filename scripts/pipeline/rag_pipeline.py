@@ -13,6 +13,7 @@ from scripts.chunking.text_chunker_v2 import TextChunker
 from scripts.retrieval.chunk_retriever_v3 import ChunkRetriever
 from scripts.prompting.prompt_builder import EmailPromptBuilder
 from scripts.api_clients.openai.gptApiClient import APIClient
+from scripts.config.step_config_requirements import STEP_REQUIRED_CONFIG
 
 from scripts.utils.config_templates import get_default_config
 from scripts.utils.merge_utils import deep_merge
